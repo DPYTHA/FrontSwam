@@ -138,6 +138,10 @@
           <input type="text" id="inputMontantColis" class="form-control mb-2" placeholder="Montant colis" />
           <input type="text" id="inputFrais" class="form-control mb-2" placeholder="Frais" />
           <input type="number" id="inputStatut" class="form-control mb-2" placeholder="Statut (0/1/2)" />
+          <input type="text" id="inputType" class="form-control mb-2" placeholder="Type de commande" />
+          <input type="text" id="inputTrackingCode" class="form-control mb-2" placeholder="Code de suivi" />
+          <input type="number" id="inputMontantTotal" class="form-control mb-2" placeholder="Montant total" />
+
         </div>
         <div class="modal-footer">
           <button type="button" id="saveBtn" class="btn btn-success">✅ Enregistrer</button>
@@ -215,6 +219,10 @@
   document.getElementById('inputFrais').value = cmd.frais || '';
   document.getElementById('inputStatut').value = cmd.statut;
   document.getElementById('inputProduits').value = (cmd.produits || []).join(', ');
+  document.getElementById('inputType').value = cmd.type || '';
+  document.getElementById('inputTrackingCode').value = cmd.tracking_code || '';
+  document.getElementById('inputMontantTotal').value = cmd.montant_total || '';
+
   new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 
@@ -222,14 +230,17 @@
     document.getElementById('saveBtn').onclick = async () => {
       const token = localStorage.getItem('token');
       const body = {
-        depart: document.getElementById('inputDepart').value,
-        arrivee: document.getElementById('inputArrivee').value,
-        montant_colis: parseFloat(document.getElementById('inputMontantColis').value),
-        frais: parseFloat(document.getElementById('inputFrais').value),
-        statut: parseInt(document.getElementById('inputStatut').value),
-        produits: document.getElementById('inputProduits').value.split(',').map(p => p.trim()) // ⇦ important
+  type: document.getElementById('inputType').value,
+  tracking_code: document.getElementById('inputTrackingCode').value,
+  montant_total: parseFloat(document.getElementById('inputMontantTotal').value),
+  depart: document.getElementById('inputDepart').value,
+  arrivee: document.getElementById('inputArrivee').value,
+  produits: document.getElementById('inputProduits').value.split(',').map(p => p.trim()),
+  montant_colis: parseFloat(document.getElementById('inputMontantColis').value),
+  frais: parseFloat(document.getElementById('inputFrais').value),
+  statut: parseInt(document.getElementById('inputStatut').value)
+};
 
-      };
       await fetch(`${API}/admin/commandes/${editId}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
