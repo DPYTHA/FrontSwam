@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swam Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background-color: #f5f5f5;
+    display: flex;
+  }
+  /* Sidebar */
+  .sidebar {
+    background-color: #ff7a00;
+    color: white;
+    width: 220px;
+    height: 100vh;
+    padding: 20px;
+    position: fixed;
+  }
+  .sidebar h2 {
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .sidebar a {
+    display: block;
+    color: white;
+    text-decoration: none;
+    padding: 10px 0;
+    font-weight: 500;
+  }
+  .sidebar a:hover {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 5px;
+    padding-left: 10px;
+  }
+  /* Main content */
+  .main {
+    margin-left: 240px;
+    padding: 20px;
+    flex: 1;
+  }
+  h1 {
+    color: #ff7a00;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+  }
+  th {
+    background-color: #ff7a00;
+    color: white;
+  }
+  tr:hover {
+    background-color: #f1f1f1;
+  }
+  .status {
+    font-weight: bold;
+    padding: 5px 8px;
+    border-radius: 4px;
+  }
+  .available {
+    background-color: #4caf50;
+    color: white;
+  }
+  .unavailable {
+    background-color: #f44336;
+    color: white;
+  }
+  /* Search */
+  .search-box {
+    margin-top: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  .search-box input {
+    padding: 10px;
+    width: 70%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  .search-box button {
+    padding: 10px 15px;
+    background-color: #ff7a00;
+    border: none;
+    color: white;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .search-box button:hover {
+    background-color: #e56e00;
+  }
+  /* Edit form */
+  .edit-form input, .edit-form select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  .edit-form button {
+    background-color: #ff7a00;
+    border: none;
+    padding: 10px 15px;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>SWAM</h2>
+  <a href="#" onclick="loadUsers()">Utilisateurs</a>
+  <a href="#" onclick="loadOrders()">Commandes</a>
+  <a href="#" onclick="loadPlats()">Plats</a>
+  <a href="#" onclick="showSearch()">Recherche</a>
+</div>
+
+<div class="main">
+  <h1 id="section-title">Tableau de bord</h1>
+  <div id="content"></div>
+</div>
+
+<script>
+const API_BASE = "https://web-production-9c72c.up.railway.app"; 
+
+async function loadUsers() {
+  document.getElementById("section-title").textContent = "Utilisateurs";
+  const res = await fetch(`${API_BASE}/users`);
+  const data = await res.json();
+  let html = `<table><tr><th>ID</th><th>Nom</th><th>Email</th></tr>`;
+  data.forEach(u => {
+    html += `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.email}</td></tr>`;
+  });
+  html += `</table>`;
+  document.getElementById("content").innerHTML = html;
+}
+
+async function loadOrders() {
+  document.getElementById("section-title").textContent = "Commandes";
+  const res = await fetch(`${API_BASE}/orders`);
+  const data = await res.json();
+  let html = `<table><tr><th>Code</th><th>Client</th><th>Statut</th></tr>`;
+  data.forEach(o => {
+    html += `<tr onclick="loadOrderDetail('${o.code}')"><td>${o.code}</td><td>${o.client_name}</td><td>${o.status}</td></tr>`;
+  });
+  html += `</table>`;
+  document.getElementById("content").innerHTML = html;
+}
+
+async function loadPlats() {
+  document.getElementById("section-title").textContent = "Plats commandés";
+  const res = await fetch(`${API_BASE}/plats`);
+  const data = await res.json();
+  let html = `<table><tr><th>ID</th><th>Nom</th><th>Prix</th></tr>`;
+  data.forEach(p => {
+    html += `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.price}</td></tr>`;
+  });
+  html += `</table>`;
+  document.getElementById("content").innerHTML = html;
+}
+
+function showSearch() {
+  document.getElementById("section-title").textContent = "Recherche de commande";
+  document.getElementById("content").innerHTML = `
+    <div class="search-box">
+      <input type="text" id="searchCode" placeholder="Code commande">
+      <button onclick="searchOrder()">Rechercher</button>
+    </div>
+    <div id="searchResult"></div>
+  `;
+}
+
+async function searchOrder() {
+  const code = document.getElementById("searchCode").value;
+  const res = await fetch(`${API_BASE}/order/${code}`);
+  if (res.ok) {
+    const order = await res.json();
+    displayOrderDetail(order);
+  } else {
+    document.getElementById("searchResult").innerHTML = "<p>Commande introuvable</p>";
+  }
+}
+
+async function loadOrderDetail(code) {
+  const res = await fetch(`${API_BASE}/order/${code}`);
+  const order = await res.json();
+  displayOrderDetail(order);
+}
+
+function displayOrderDetail(order) {
+  let livreurStatus = order.livreur_disponible
+    ? '<span class="status available">Disponible</span>'
+    : '<span class="status unavailable">Indisponible</span>';
+
+  document.getElementById("content").innerHTML = `
+    <h2>Détails de la commande ${order.code}</h2>
+    <form class="edit-form" onsubmit="saveOrder(event, '${order.code}')">
+      <label>Client</label>
+      <input type="text" value="${order.client_name}" name="client_name">
+
+      <label>Adresse</label>
+      <input type="text" value="${order.address}" name="address">
+
+      <label>Plats</label>
+      <input type="text" value="${order.plats.join(', ')}" name="plats">
+
+      <label>Statut</label>
+      <select name="status">
+        <option ${order.status === "En préparation" ? "selected" : ""}>En préparation</option>
+        <option ${order.status === "En livraison" ? "selected" : ""}>En livraison</option>
+        <option ${order.status === "Livrée" ? "selected" : ""}>Livrée</option>
+      </select>
+
+      <label>Livreur</label>
+      <input type="text" value="${order.livreur}" name="livreur">
+
+      <label>Disponibilité livreur</label>
+      ${livreurStatus}
+
+      <br><br>
+      <button type="submit">Enregistrer</button>
+    </form>
+  `;
+}
+
+async function saveOrder(event, code) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const payload = {};
+  formData.forEach((value, key) => payload[key] = value);
+  await fetch(`${API_BASE}/order/${code}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  alert("Commande mise à jour !");
+  loadOrders();
+}
+</script>
+</body>
+</html>
