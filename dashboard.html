@@ -3,257 +3,206 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Swam Control Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+<title>Dashboard Admin</title>
 <style>
   body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(120deg, #fff3f0, #ffe6e0);
     margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background-color: #f5f5f5;
-    display: flex;
+    padding: 0;
   }
-  /* Sidebar */
-  .sidebar {
-    background-color: #ff7a00;
-    color: white;
-    width: 220px;
-    height: 100vh;
+  .container {
+    max-width: 900px;
+    margin: 40px auto;
     padding: 20px;
-    position: fixed;
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   }
-  .sidebar h2 {
-    margin-bottom: 40px;
-    text-align: center;
-  }
-  .sidebar a {
-    display: block;
-    color: white;
-    text-decoration: none;
-    padding: 10px 0;
-    font-weight: 500;
-  }
-  .sidebar a:hover {
-    background-color: rgba(255,255,255,0.1);
-    border-radius: 5px;
-    padding-left: 10px;
-  }
-  /* Main content */
-  .main {
-    margin-left: 240px;
-    padding: 20px;
-    flex: 1;
-  }
-  h1 {
-    color: #ff7a00;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  th, td {
-    padding: 12px;
-    border-bottom: 1px solid #ddd;
-    text-align: left;
-  }
-  th {
-    background-color: #ff7a00;
-    color: white;
-  }
-  tr:hover {
-    background-color: #f1f1f1;
-  }
-  .status {
-    font-weight: bold;
-    padding: 5px 8px;
-    border-radius: 4px;
-  }
-  .available {
-    background-color: #4caf50;
-    color: white;
-  }
-  .unavailable {
-    background-color: #f44336;
-    color: white;
-  }
-  /* Search */
-  .search-box {
-    margin-top: 20px;
-    background: white;
+  h1 { color: orangered; text-align: center; margin-bottom: 30px; }
+  h2 { margin-top: 30px; margin-bottom: 15px; color: #FF6B00; }
+  .card {
+    background: #f0f0f0;
     padding: 15px;
-    border-radius: 8px;
-  }
-  .search-box input {
-    padding: 10px;
-    width: 70%;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  .search-box button {
-    padding: 10px 15px;
-    background-color: #ff7a00;
-    border: none;
-    color: white;
-    font-weight: bold;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  .search-box button:hover {
-    background-color: #e56e00;
-  }
-  /* Edit form */
-  .edit-form input, .edit-form select {
-    width: 100%;
-    padding: 8px;
-    margin-top: 5px;
+    border-radius: 10px;
     margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
   }
-  .edit-form button {
-    background-color: #ff7a00;
+  button {
+    padding: 8px 12px;
     border: none;
-    padding: 10px 15px;
-    color: white;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
+    font-weight: bold;
+    color: #fff;
+    margin-top: 8px;
   }
+  .btn-edit { background-color: #4CAF50; }
+  .btn-dispo { margin-left: 10px; }
+  .btn-refresh { background-color: #3498db; margin-bottom: 20px; }
+  .btn-chat { background-color: #FF6B00; margin-bottom: 20px; display: inline-flex; align-items: center; padding: 10px 20px; border-radius: 25px; }
+  .btn-logout { background-color: red; float: right; padding: 8px 12px; border-radius: 6px; color: white; font-weight: bold; }
+  .modal {
+    display: none;
+    position: fixed; top: 0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+  }
+  .modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 500px;
+    width: 90%;
+  }
+  .modal-content h3 { text-align: center; color: orangered; margin-bottom: 20px; }
+  .modal-content input {
+    width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc;
+  }
+  .close-btn { background-color: gray; margin-top: 10px; }
 </style>
 </head>
 <body>
+<div class="container">
+  <button class="btn-chat" onclick="alert('Ouvrir les chats')">💬 Mes Chats</button>
+  <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  <button class="btn-refresh" onclick="fetchData()">🔄 Rafraîchir</button>
 
-<div class="sidebar">
-  <h2>SWAM</h2>
-  <a href="#" onclick="loadUsers()">Utilisateurs</a>
-  <a href="#" onclick="loadOrders()">Commandes</a>
-  <a href="#" onclick="loadPlats()">Plats</a>
-  <a href="#" onclick="showSearch()">Recherche</a>
+  <h1>📊 Dashboard Admin</h1>
+
+  <h2>👥 Utilisateurs</h2>
+  <div id="users"></div>
+
+  <h2>📦 Commandes</h2>
+  <div id="commandes"></div>
 </div>
 
-<div class="main">
-  <h1 id="section-title">Tableau de bord</h1>
-  <div id="content"></div>
+<!-- Modal édition commande -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h3>✍️ Modifier la commande</h3>
+    <input type="text" id="depart" placeholder="Départ">
+    <input type="text" id="arrivee" placeholder="Arrivée">
+    <input type="text" id="tracking_code" placeholder="Code suivi">
+    <input type="number" id="montant_colis" placeholder="Montant colis">
+    <input type="number" id="frais" placeholder="Frais">
+    <input type="number" id="statut" placeholder="Statut">
+    <button id="saveBtn">✅ Enregistrer</button>
+    <button class="close-btn" onclick="closeModal()">❌ Annuler</button>
+  </div>
 </div>
 
 <script>
-const API_BASE = "https://web-production-9c72c.up.railway.app"; 
+  const BACKEND_URL = 'https://web-production-9c72c.up.railway.app';
+  let currentCommande = null;
 
-async function loadUsers() {
-  document.getElementById("section-title").textContent = "Utilisateurs";
-  const res = await fetch(`${API_BASE}/users`);
-  const data = await res.json();
-  let html = `<table><tr><th>ID</th><th>Nom</th><th>Email</th></tr>`;
-  data.forEach(u => {
-    html += `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.email}</td></tr>`;
-  });
-  html += `</table>`;
-  document.getElementById("content").innerHTML = html;
-}
+  async function fetchData() {
+    const token = localStorage.getItem('access_token');
 
-async function loadOrders() {
-  document.getElementById("section-title").textContent = "Commandes";
-  const res = await fetch(`${API_BASE}/orders`);
-  const data = await res.json();
-  let html = `<table><tr><th>Code</th><th>Client</th><th>Statut</th></tr>`;
-  data.forEach(o => {
-    html += `<tr onclick="loadOrderDetail('${o.code}')"><td>${o.code}</td><td>${o.client_name}</td><td>${o.status}</td></tr>`;
-  });
-  html += `</table>`;
-  document.getElementById("content").innerHTML = html;
-}
+    // Utilisateurs
+    try {
+      const resUsers = await fetch(`${BACKEND_URL}/api/users`);
+      const users = await resUsers.json();
+      const usersDiv = document.getElementById('users');
+      usersDiv.innerHTML = '';
+      users.forEach(user => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<strong>${user.username}</strong> - ${user.role}`;
+        if(user.role==='livreur'){
+          const btnDispo = document.createElement('button');
+          btnDispo.className = 'btn-dispo';
+          btnDispo.style.backgroundColor = user.disponible ? 'green':'grey';
+          btnDispo.innerText = user.disponible ? '✅ Disponible' : '⛔️ Indisponible';
+          btnDispo.onclick = () => toggleDispo(user.id, user.disponible);
+          card.appendChild(btnDispo);
+        }
+        usersDiv.appendChild(card);
+      });
+    } catch(err){ console.error('Erreur utilisateurs:', err); }
 
-async function loadPlats() {
-  document.getElementById("section-title").textContent = "Plats commandés";
-  const res = await fetch(`${API_BASE}/plats`);
-  const data = await res.json();
-  let html = `<table><tr><th>ID</th><th>Nom</th><th>Prix</th></tr>`;
-  data.forEach(p => {
-    html += `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.price}</td></tr>`;
-  });
-  html += `</table>`;
-  document.getElementById("content").innerHTML = html;
-}
-
-function showSearch() {
-  document.getElementById("section-title").textContent = "Recherche de commande";
-  document.getElementById("content").innerHTML = `
-    <div class="search-box">
-      <input type="text" id="searchCode" placeholder="Code commande">
-      <button onclick="searchOrder()">Rechercher</button>
-    </div>
-    <div id="searchResult"></div>
-  `;
-}
-
-async function searchOrder() {
-  const code = document.getElementById("searchCode").value;
-  const res = await fetch(`${API_BASE}/order/${code}`);
-  if (res.ok) {
-    const order = await res.json();
-    displayOrderDetail(order);
-  } else {
-    document.getElementById("searchResult").innerHTML = "<p>Commande introuvable</p>";
+    // Commandes
+    try {
+      const resCmd = await fetch(`${BACKEND_URL}/admin/commandes`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await resCmd.json();
+      const commandes = data.commandes || [];
+      const cmdDiv = document.getElementById('commandes');
+      cmdDiv.innerHTML = '';
+      commandes.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          Code: ${c.tracking_code} <br>
+          De: ${c.depart} <br>
+          À: ${c.arrivee} <br>
+          Montant colis: ${c.montant_colis} <br>
+          Frais: ${c.frais} <br>
+          Statut: ${c.statut} 
+        `;
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn-edit';
+        btnEdit.innerText = '✏️ Modifier';
+        btnEdit.onclick = () => openModal(c);
+        card.appendChild(btnEdit);
+        cmdDiv.appendChild(card);
+      });
+    } catch(err){ console.error('Erreur commandes:', err); }
   }
-}
 
-async function loadOrderDetail(code) {
-  const res = await fetch(`${API_BASE}/order/${code}`);
-  const order = await res.json();
-  displayOrderDetail(order);
-}
+  async function toggleDispo(userId, currentState) {
+    try{
+      await fetch(`${BACKEND_URL}/api/livreur/${userId}/disponibilite`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ disponible: !currentState })
+      });
+      fetchData();
+    }catch(err){ console.error(err); }
+  }
 
-function displayOrderDetail(order) {
-  let livreurStatus = order.livreur_disponible
-    ? '<span class="status available">Disponible</span>'
-    : '<span class="status unavailable">Indisponible</span>';
+  function logout(){
+    localStorage.removeItem('access_token');
+    window.location.href = 'login.html';
+  }
 
-  document.getElementById("content").innerHTML = `
-    <h2>Détails de la commande ${order.code}</h2>
-    <form class="edit-form" onsubmit="saveOrder(event, '${order.code}')">
-      <label>Client</label>
-      <input type="text" value="${order.client_name}" name="client_name">
+  function openModal(cmd){
+    currentCommande = cmd;
+    document.getElementById('depart').value = cmd.depart;
+    document.getElementById('arrivee').value = cmd.arrivee;
+    document.getElementById('tracking_code').value = cmd.tracking_code;
+    document.getElementById('montant_colis').value = cmd.montant_colis;
+    document.getElementById('frais').value = cmd.frais;
+    document.getElementById('statut').value = cmd.statut;
+    document.getElementById('modal').style.display = 'flex';
+  }
 
-      <label>Adresse</label>
-      <input type="text" value="${order.address}" name="address">
+  function closeModal(){
+    currentCommande = null;
+    document.getElementById('modal').style.display = 'none';
+  }
 
-      <label>Plats</label>
-      <input type="text" value="${order.plats.join(', ')}" name="plats">
-
-      <label>Statut</label>
-      <select name="status">
-        <option ${order.status === "En préparation" ? "selected" : ""}>En préparation</option>
-        <option ${order.status === "En livraison" ? "selected" : ""}>En livraison</option>
-        <option ${order.status === "Livrée" ? "selected" : ""}>Livrée</option>
-      </select>
-
-      <label>Livreur</label>
-      <input type="text" value="${order.livreur}" name="livreur">
-
-      <label>Disponibilité livreur</label>
-      ${livreurStatus}
-
-      <br><br>
-      <button type="submit">Enregistrer</button>
-    </form>
-  `;
-}
-
-async function saveOrder(event, code) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
-  const payload = {};
-  formData.forEach((value, key) => payload[key] = value);
-  await fetch(`${API_BASE}/order/${code}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    if(!currentCommande) return;
+    const token = localStorage.getItem('access_token');
+    const payload = {
+      depart: document.getElementById('depart').value,
+      arrivee: document.getElementById('arrivee').value,
+      tracking_code: document.getElementById('tracking_code').value,
+      montant_colis: parseFloat(document.getElementById('montant_colis').value),
+      frais: parseFloat(document.getElementById('frais').value),
+      statut: parseInt(document.getElementById('statut').value)
+    };
+    try{
+      await fetch(`${BACKEND_URL}/admin/commandes/${currentCommande.id}`, {
+        method:'PUT',
+        headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      closeModal();
+      fetchData();
+    }catch(err){ console.error('Erreur modification:', err); }
   });
-  alert("Commande mise à jour !");
-  loadOrders();
-}
+
+  fetchData();
 </script>
 </body>
 </html>
