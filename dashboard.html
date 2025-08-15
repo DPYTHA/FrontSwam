@@ -1,20 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Dashboard Admin</title>
 <style>
-  /* Effet de clignotement rouge */
-  .new-order {
-    animation: blink 1s infinite;
-  }
+  /* Effet de clignotement rouge pour nouvelle commande */
+  .new-order { animation: blink 1s infinite; }
   @keyframes blink {
     0%, 50%, 100% { background-color: #ff4d4d; }
     25%, 75% { background-color: #f0f0f0; }
   }
-</style>
-<style>
+
   body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(120deg, #fff3f0, #ffe6e0); margin: 0; padding: 0; }
   .container { max-width: 900px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
   h1 { color: orangered; text-align: center; margin-bottom: 30px; }
@@ -33,22 +30,27 @@
   .btn-tofood{background-color: #a26f23; margin-bottom: 20px;}
   .btn-tofood:hover{background-color: #c38457;}
   .btn-tofood a{ text-decoration: none; color: #f0f0f0;}
+  .btn-sound { background-color: #16a34a; margin-left: 10px; }
   .modal { display: none; position: fixed; top: 0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
   .modal-content { background: #fff; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; }
   .modal-content h3 { text-align: center; color: orangered; margin-bottom: 20px; }
-  .modal-content input, .modal-content textarea {
-    width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc;
-  }
+  .modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc; }
   .close-btn { background-color: gray; margin-top: 10px; }
+  .row { display:flex; gap:8px; flex-wrap: wrap; align-items:center; }
 </style>
 </head>
 <body>
 <div class="container">
-  <button class="btn-chat" onclick="alert('Ouvrir les chats')">💬 Mes Chats</button>
-  <button class="btn-logout" onclick="logout()">Déconnexion</button>
-  <button class="btn-refresh" onclick="fetchData()">🔄 Rafraîchir</button>
-  <button class="btn-tofood" ><a href="campement.html">Commande Plats</a></button>
-  <button class="btn-track" ><a href="track.html">Voir la livraison</a></button>
+  <div class="row">
+    <button class="btn-chat" onclick="alert('Ouvrir les chats')">💬 Mes Chats</button>
+    <button class="btn-refresh" onclick="fetchData()">🔄 Rafraîchir</button>
+    <button id="enableSound" class="btn-sound">🔔 Activer le son</button>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  </div>
+  <div class="row">
+    <button class="btn-tofood"><a href="campement.html">Commande Plats</a></button>
+    <button class="btn-track"><a href="track.html">Voir la livraison</a></button>
+  </div>
 
   <h1>📊 Dashboard Admin</h1>
 
@@ -58,23 +60,25 @@
   <h2>📦 Commandes</h2>
   <div id="commandes"></div>
 </div>
+
 <audio id="alertSound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
 
 <!-- Message d'alerte défilant -->
 <marquee id="alertMarquee" behavior="scroll" direction="left" style="color: red; font-weight: bold; display:none;">
 🚨 Nouvelle commande détectée !
 </marquee>
+
 <!-- Modal édition commande -->
 <div class="modal" id="modal">
-  <div class="modal-content">
+  <div class="modal-content" onclick="event.stopPropagation()">
     <h3>✍️ Modifier la commande</h3>
     <input type="text" id="type" placeholder="Type de commande">
     <input type="text" id="depart" placeholder="Départ">
     <input type="text" id="arrivee" placeholder="Arrivée">
     <textarea id="produits" placeholder="Produits (JSON ou texte)"></textarea>
-    <input type="number" id="montant_colis" placeholder="Montant colis">
-    <input type="number" id="frais" placeholder="Frais">
-    <input type="number" id="montant_total" placeholder="Montant total">
+    <input type="number" id="montant_colis" placeholder="Montant colis" step="0.01">
+    <input type="number" id="frais" placeholder="Frais" step="0.01">
+    <input type="number" id="montant_total" placeholder="Montant total" step="0.01">
     <input type="text" id="tracking_code" placeholder="Code suivi">
     <input type="number" id="statut" placeholder="Statut">
     <input type="number" id="user_id" placeholder="ID utilisateur">
@@ -84,46 +88,113 @@
 </div>
 
 <script>
+/* ---------- CONFIG ---------- */
 const BACKEND_URL = 'https://web-production-9c72c.up.railway.app';
+
+/* ---------- ETAT ---------- */
 let currentCommande = null;
-let lastCommandeDate = null; // Pour stocker la date de la dernière commande vue
+let seenIds = new Set();      // pour marquer les nouvelles commandes
+let pollTimer = null;
+let soundEnabled = false;
 
-async function fetchData() {
-  const token = localStorage.getItem('access_token');
+/* ---------- HELPERS ---------- */
+function getToken() {
+  return localStorage.getItem('access_token');
+}
+function authHeaders(json = true) {
+  const headers = {};
+  const token = getToken();
+  if (json) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
 
-  // Utilisateurs (inchangé)
+/* ---------- AUDIO / ALERTES ---------- */
+const alertSound = document.getElementById('alertSound');
+const alertMarquee = document.getElementById('alertMarquee');
+document.getElementById('enableSound').addEventListener('click', async () => {
   try {
-    const resUsers = await fetch(`${BACKEND_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
-    const users = await resUsers.json();
+    alertSound.muted = false;
+    // "débloquer" l'audio (play/pause)
+    await alertSound.play();
+    alertSound.pause();
+    alertSound.currentTime = 0;
+    soundEnabled = true;
+    document.getElementById('enableSound').textContent = '🔔 Son activé';
+  } catch (e) {
+    console.warn('Le navigateur a bloqué l’audio : ', e);
+    alert('Clique à nouveau si le son ne se lance pas (politique navigateur).');
+  }
+});
+function notifyNewOrders() {
+  alertMarquee.style.display = 'block';
+  if (soundEnabled) {
+    alertSound.currentTime = 0;
+    alertSound.play().catch(()=>{ /* ignore */ });
+  }
+  // cacher le bandeau après 10s
+  setTimeout(() => alertMarquee.style.display = 'none', 10000);
+}
+
+/* ---------- FETCH DATA ---------- */
+async function fetchUsers() {
+  try {
+    // (ton /api/users n’est pas protégé, mais on met le header si jamais)
+    const res = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders(false) });
+    const users = await res.json();
     const usersDiv = document.getElementById('users');
     usersDiv.innerHTML = '';
     users.forEach(user => {
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `<strong>${user.username}</strong> - ${user.role}`;
-      if(user.role==='livreur'){
+      if (user.role === 'livreur') {
         const btnDispo = document.createElement('button');
         btnDispo.className = 'btn-dispo';
-        btnDispo.style.backgroundColor = user.disponible ? 'green':'grey';
+        btnDispo.style.backgroundColor = user.disponible ? 'green' : 'grey';
         btnDispo.innerText = user.disponible ? '✅ Disponible' : '⛔️ Indisponible';
         btnDispo.onclick = () => toggleDispo(user.id, user.disponible);
         card.appendChild(btnDispo);
       }
       usersDiv.appendChild(card);
     });
-  } catch(err){ console.error('Erreur utilisateurs:', err); }
+  } catch (err) {
+    console.error('Erreur utilisateurs:', err);
+  }
+}
 
-  // Commandes avec détection nouvelle commande
+async function fetchCommandes() {
   try {
-    const resCmd = await fetch(`${BACKEND_URL}/admin/commandes`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await resCmd.json();
+    const res = await fetch(`${BACKEND_URL}/admin/commandes`, { headers: authHeaders(false) });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        console.warn('Accès refusé. Assure-toi que le token est présent et que l’utilisateur est admin.');
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
     const commandes = data.commandes || [];
     const cmdDiv = document.getElementById('commandes');
     cmdDiv.innerHTML = '';
 
-    commandes.forEach((c, index) => {
+    let hasNew = false;
+    const currentIds = new Set();
+
+    commandes.forEach(c => {
+      currentIds.add(c.id);
+      const isNew = !seenIds.has(c.id);
+      if (isNew && seenIds.size > 0) {
+        hasNew = true;
+      }
+
       const card = document.createElement('div');
       card.className = 'card';
+      if (isNew && seenIds.size > 0) {
+        card.classList.add('new-order');
+        // retire l’animation après 60s pour ne pas clignoter à l’infini
+        setTimeout(() => card.classList.remove('new-order'), 60000);
+      }
+
       card.innerHTML = `
         <strong>Code:</strong> ${c.tracking_code} <br>
         <strong>Type:</strong> ${c.type} <br>
@@ -140,33 +211,138 @@ async function fetchData() {
       const btnEdit = document.createElement('button');
       btnEdit.className = 'btn-edit';
       btnEdit.innerText = '✏️ Modifier';
-      btnEdit.onclick = () => openModal(c);
+      btnEdit.addEventListener('click', () => openModal(c));
       card.appendChild(btnEdit);
-
-      // Vérifier si c'est une nouvelle commande
-      const cmdDate = new Date(c.date_commande);
-      if (!lastCommandeDate || cmdDate > new Date(lastCommandeDate)) {
-        if (index === 0 && lastCommandeDate) { // Seulement si c'est plus récent que la dernière vue
-          card.classList.add("new-order");
-          document.getElementById("alertMarquee").style.display = "block";
-          document.getElementById("alertSound").play();
-        }
-      }
 
       cmdDiv.appendChild(card);
     });
 
-    // Mettre à jour la dernière commande vue
-    if (commandes.length > 0) {
-      lastCommandeDate = commandes[0].date_commande;
-    }
-  } catch(err){ console.error('Erreur commandes:', err); }
+    // si des nouvelles commandes sont arrivées (après le 1er chargement)
+    if (hasNew) notifyNewOrders();
+
+    // mettre à jour le set des commandes vues
+    seenIds = currentIds;
+  } catch (err) {
+    console.error('Erreur commandes:', err);
+  }
 }
 
-// Rafraîchir toutes les 20 secondes
-setInterval(fetchData, 20000);
+async function fetchData() {
+  await Promise.all([fetchUsers(), fetchCommandes()]);
+}
 
-fetchData();
+/* ---------- TOGGLE DISPONIBILITÉ LIVREUR ---------- */
+async function toggleDispo(userId, currentState) {
+  try {
+    await fetch(`${BACKEND_URL}/api/livreur/${userId}/disponibilite`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ disponible: !currentState })
+    });
+    fetchUsers();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+/* ---------- MODAL EDIT ---------- */
+function openModal(cmd) {
+  currentCommande = cmd;
+  document.getElementById('type').value = cmd.type ?? '';
+  document.getElementById('depart').value = cmd.depart ?? '';
+  document.getElementById('arrivee').value = cmd.arrivee ?? '';
+  document.getElementById('produits').value = cmd.produits ?? '';
+  document.getElementById('montant_colis').value = cmd.montant_colis ?? '';
+  document.getElementById('frais').value = cmd.frais ?? '';
+  document.getElementById('montant_total').value = cmd.montant_total ?? '';
+  document.getElementById('tracking_code').value = cmd.tracking_code ?? '';
+  document.getElementById('statut').value = cmd.statut ?? 0;
+  document.getElementById('user_id').value = cmd.user_id ?? '';
+
+  const modal = document.getElementById('modal');
+  modal.style.display = 'flex';
+
+  // fermer en cliquant sur le backdrop
+  modal.onclick = () => closeModal();
+}
+
+function closeModal() {
+  const modal = document.getElementById('modal');
+  modal.style.display = 'none';
+  modal.onclick = null;
+  currentCommande = null;
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  if (!currentCommande) return;
+
+  const payload = {
+    type: document.getElementById('type').value,
+    depart: document.getElementById('depart').value,
+    arrivee: document.getElementById('arrivee').value,
+    produits: document.getElementById('produits').value,
+    montant_colis: toNumber(document.getElementById('montant_colis').value),
+    frais: toNumber(document.getElementById('frais').value),
+    montant_total: toNumber(document.getElementById('montant_total').value),
+    tracking_code: document.getElementById('tracking_code').value,
+    statut: toInt(document.getElementById('statut').value),
+    user_id: toInt(document.getElementById('user_id').value)
+  };
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/admin/commandes/${currentCommande.id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+    closeModal();
+    await fetchCommandes(); // rafraîchir la liste
+  } catch (err) {
+    console.error('Erreur modification:', err);
+    alert("La modification a échoué. Vérifie que l'utilisateur connecté est ADMIN et que le token est valide.");
+  }
+});
+
+function toNumber(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function toInt(v) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* ---------- POLLING 20s (pause quand onglet caché) ---------- */
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(fetchData, 2000);
+}
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPolling();
+  else { fetchData(); startPolling(); }
+});
+
+/* ---------- AUTH ---------- */
+function logout() {
+  localStorage.removeItem('access_token');
+  window.location.href = 'login.html';
+}
+
+/* ---------- INIT ---------- */
+(async function init() {
+  await fetchData();
+  startPolling();
+})();
 </script>
 </body>
 </html>
