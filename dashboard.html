@@ -5,59 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Admin</title>
 <style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(120deg, #fff3f0, #ffe6e0);
-    margin: 0;
-    padding: 0;
-  }
-  .container {
-    max-width: 900px;
-    margin: 40px auto;
-    padding: 20px;
-    background: #fff;
-    border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  }
+  body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(120deg, #fff3f0, #ffe6e0); margin: 0; padding: 0; }
+  .container { max-width: 900px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
   h1 { color: orangered; text-align: center; margin-bottom: 30px; }
   h2 { margin-top: 30px; margin-bottom: 15px; color: #FF6B00; }
-  .card {
-    background: #f0f0f0;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-  }
-  button {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    color: #fff;
-    margin-top: 8px;
-  }
+  .card { background: #f0f0f0; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+  button { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: #fff; margin-top: 8px; }
   .btn-edit { background-color: #4CAF50; }
   .btn-dispo { margin-left: 10px; }
   .btn-refresh { background-color: #3498db; margin-bottom: 20px; }
   .btn-chat { background-color: #FF6B00; margin-bottom: 20px; display: inline-flex; align-items: center; padding: 10px 20px; border-radius: 25px; }
+  .btn-chat:hover{background-color: #ddae8d;}
   .btn-logout { background-color: red; float: right; padding: 8px 12px; border-radius: 6px; color: white; font-weight: bold; }
-  .modal {
-    display: none;
-    position: fixed; top: 0; left:0; width:100%; height:100%;
-    background: rgba(0,0,0,0.5);
-    justify-content: center; align-items: center;
-  }
+  .btn-track { background-color: #054874; margin-bottom: 20px; }
+  .btn-track a{color: #f0f0f0;text-decoration: none;}
+  .btn-track:hover{background-color: #3498db;}
   .btn-tofood{background-color: #a26f23; margin-bottom: 20px;}
+  .btn-tofood:hover{background-color: #c38457;}
   .btn-tofood a{ text-decoration: none; color: #f0f0f0;}
-  .modal-content {
-    background: #fff;
-    padding: 30px;
-    border-radius: 15px;
-    max-width: 500px;
-    width: 90%;
-  }
+  .modal { display: none; position: fixed; top: 0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+  .modal-content { background: #fff; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; }
   .modal-content h3 { text-align: center; color: orangered; margin-bottom: 20px; }
-  .modal-content input {
+  .modal-content input, .modal-content textarea {
     width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc;
   }
   .close-btn { background-color: gray; margin-top: 10px; }
@@ -69,6 +38,7 @@
   <button class="btn-logout" onclick="logout()">Déconnexion</button>
   <button class="btn-refresh" onclick="fetchData()">🔄 Rafraîchir</button>
   <button class="btn-tofood" ><a href="campement.html">Commande Plats</a></button>
+  <button class="btn-track" ><a href="track.html">Voir la livraison</a></button>
 
   <h1>📊 Dashboard Admin</h1>
 
@@ -83,129 +53,146 @@
 <div class="modal" id="modal">
   <div class="modal-content">
     <h3>✍️ Modifier la commande</h3>
+    <input type="text" id="type" placeholder="Type de commande">
     <input type="text" id="depart" placeholder="Départ">
     <input type="text" id="arrivee" placeholder="Arrivée">
-    <input type="text" id="tracking_code" placeholder="Code suivi">
+    <textarea id="produits" placeholder="Produits (JSON ou texte)"></textarea>
     <input type="number" id="montant_colis" placeholder="Montant colis">
     <input type="number" id="frais" placeholder="Frais">
+    <input type="number" id="montant_total" placeholder="Montant total">
+    <input type="text" id="tracking_code" placeholder="Code suivi">
     <input type="number" id="statut" placeholder="Statut">
+    <input type="number" id="user_id" placeholder="ID utilisateur">
     <button id="saveBtn">✅ Enregistrer</button>
     <button class="close-btn" onclick="closeModal()">❌ Annuler</button>
   </div>
 </div>
 
 <script>
-  const BACKEND_URL = 'https://web-production-9c72c.up.railway.app';
-  let currentCommande = null;
+const BACKEND_URL = 'https://web-production-9c72c.up.railway.app';
+let currentCommande = null;
 
-  async function fetchData() {
-    const token = localStorage.getItem('access_token');
+async function fetchData() {
+  const token = localStorage.getItem('access_token');
 
-    // Utilisateurs
-    try {
-      const resUsers = await fetch(`${BACKEND_URL}/api/users`);
-      const users = await resUsers.json();
-      const usersDiv = document.getElementById('users');
-      usersDiv.innerHTML = '';
-      users.forEach(user => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<strong>${user.username}</strong> - ${user.role}`;
-        if(user.role==='livreur'){
-          const btnDispo = document.createElement('button');
-          btnDispo.className = 'btn-dispo';
-          btnDispo.style.backgroundColor = user.disponible ? 'green':'grey';
-          btnDispo.innerText = user.disponible ? '✅ Disponible' : '⛔️ Indisponible';
-          btnDispo.onclick = () => toggleDispo(user.id, user.disponible);
-          card.appendChild(btnDispo);
-        }
-        usersDiv.appendChild(card);
-      });
-    } catch(err){ console.error('Erreur utilisateurs:', err); }
+  // Utilisateurs
+  try {
+    const resUsers = await fetch(`${BACKEND_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
+    const users = await resUsers.json();
+    const usersDiv = document.getElementById('users');
+    usersDiv.innerHTML = '';
+    users.forEach(user => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<strong>${user.username}</strong> - ${user.role}`;
+      if(user.role==='livreur'){
+        const btnDispo = document.createElement('button');
+        btnDispo.className = 'btn-dispo';
+        btnDispo.style.backgroundColor = user.disponible ? 'green':'grey';
+        btnDispo.innerText = user.disponible ? '✅ Disponible' : '⛔️ Indisponible';
+        btnDispo.onclick = () => toggleDispo(user.id, user.disponible);
+        card.appendChild(btnDispo);
+      }
+      usersDiv.appendChild(card);
+    });
+  } catch(err){ console.error('Erreur utilisateurs:', err); }
 
-    // Commandes
-    try {
-      const resCmd = await fetch(`${BACKEND_URL}commandes`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await resCmd.json();
-      const commandes = data.commandes || [];
-      const cmdDiv = document.getElementById('commandes');
-      cmdDiv.innerHTML = '';
-      commandes.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          Code: ${c.tracking_code} <br>
-          De: ${c.depart} <br>
-          À: ${c.arrivee} <br>
-          Montant colis: ${c.montant_colis} <br>
-          Frais: ${c.frais} <br>
-          Statut: ${c.statut} 
-        `;
-        const btnEdit = document.createElement('button');
-        btnEdit.className = 'btn-edit';
-        btnEdit.innerText = '✏️ Modifier';
-        btnEdit.onclick = () => openModal(c);
-        card.appendChild(btnEdit);
-        cmdDiv.appendChild(card);
-      });
-    } catch(err){ console.error('Erreur commandes:', err); }
-  }
+  // Commandes
+  try {
+    const resCmd = await fetch(`${BACKEND_URL}/admin/commandes`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await resCmd.json();
+    const commandes = data.commandes || [];
+    const cmdDiv = document.getElementById('commandes');
+    cmdDiv.innerHTML = '';
+    commandes.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <strong>Code:</strong> ${c.tracking_code} <br>
+        <strong>Type:</strong> ${c.type} <br>
+        <strong>De:</strong> ${c.depart} <br>
+        <strong>À:</strong> ${c.arrivee} <br>
+        <strong>Produits:</strong> ${c.produits} <br>
+        <strong>Montant colis:</strong> ${c.montant_colis} <br>
+        <strong>Frais:</strong> ${c.frais} <br>
+        <strong>Total:</strong> ${c.montant_total} <br>
+        <strong>Statut:</strong> ${c.statut} <br>
+        <strong>Utilisateur ID:</strong> ${c.user_id}
+      `;
+      const btnEdit = document.createElement('button');
+      btnEdit.className = 'btn-edit';
+      btnEdit.innerText = '✏️ Modifier';
+      btnEdit.onclick = () => openModal(c);
+      card.appendChild(btnEdit);
+      cmdDiv.appendChild(card);
+    });
+  } catch(err){ console.error('Erreur commandes:', err); }
+}
 
-  async function toggleDispo(userId, currentState) {
-    try{
-      await fetch(`${BACKEND_URL}/api/livreur/${userId}/disponibilite`, {
-        method:'PUT',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ disponible: !currentState })
-      });
-      fetchData();
-    }catch(err){ console.error(err); }
-  }
+async function toggleDispo(userId, currentState) {
+  const token = localStorage.getItem('access_token');
+  try {
+    await fetch(`${BACKEND_URL}/api/livreur/${userId}/disponibilite`, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ disponible: !currentState })
+    });
+    fetchData();
+  } catch(err){ console.error(err); }
+}
 
-  function logout(){
-    localStorage.removeItem('access_token');
-    window.location.href = 'login.html';
-  }
+function logout(){
+  localStorage.removeItem('access_token');
+  window.location.href = 'login.html';
+}
 
-  function openModal(cmd){
-    currentCommande = cmd;
-    document.getElementById('depart').value = cmd.depart;
-    document.getElementById('arrivee').value = cmd.arrivee;
-    document.getElementById('tracking_code').value = cmd.tracking_code;
-    document.getElementById('montant_colis').value = cmd.montant_colis;
-    document.getElementById('frais').value = cmd.frais;
-    document.getElementById('statut').value = cmd.statut;
-    document.getElementById('modal').style.display = 'flex';
-  }
+function openModal(cmd){
+  currentCommande = cmd;
+  document.getElementById('type').value = cmd.type;
+  document.getElementById('depart').value = cmd.depart;
+  document.getElementById('arrivee').value = cmd.arrivee;
+  document.getElementById('produits').value = cmd.produits;
+  document.getElementById('montant_colis').value = cmd.montant_colis;
+  document.getElementById('frais').value = cmd.frais;
+  document.getElementById('montant_total').value = cmd.montant_total;
+  document.getElementById('tracking_code').value = cmd.tracking_code;
+  document.getElementById('statut').value = cmd.statut;
+  document.getElementById('user_id').value = cmd.user_id;
+  document.getElementById('modal').style.display = 'flex';
+}
 
-  function closeModal(){
-    currentCommande = null;
-    document.getElementById('modal').style.display = 'none';
-  }
+function closeModal(){
+  currentCommande = null;
+  document.getElementById('modal').style.display = 'none';
+}
 
-  document.getElementById('saveBtn').addEventListener('click', async () => {
-    if(!currentCommande) return;
-    const token = localStorage.getItem('access_token');
-    const payload = {
-      depart: document.getElementById('depart').value,
-      arrivee: document.getElementById('arrivee').value,
-      tracking_code: document.getElementById('tracking_code').value,
-      montant_colis: parseFloat(document.getElementById('montant_colis').value),
-      frais: parseFloat(document.getElementById('frais').value),
-      statut: parseInt(document.getElementById('statut').value)
-    };
-    try{
-      await fetch(`${BACKEND_URL}/admin/commandes/${currentCommande.id}`, {
-        method:'PUT',
-        headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      closeModal();
-      fetchData();
-    }catch(err){ console.error('Erreur modification:', err); }
-  });
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  if(!currentCommande) return;
+  const token = localStorage.getItem('access_token');
+  const payload = {
+    type: document.getElementById('type').value,
+    depart: document.getElementById('depart').value,
+    arrivee: document.getElementById('arrivee').value,
+    produits: document.getElementById('produits').value,
+    montant_colis: parseFloat(document.getElementById('montant_colis').value),
+    frais: parseFloat(document.getElementById('frais').value),
+    montant_total: parseFloat(document.getElementById('montant_total').value),
+    tracking_code: document.getElementById('tracking_code').value,
+    statut: parseInt(document.getElementById('statut').value),
+    user_id: parseInt(document.getElementById('user_id').value)
+  };
+  try{
+    await fetch(`${BACKEND_URL}/admin/commandes/${currentCommande.id}`, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    closeModal();
+    fetchData();
+  } catch(err){ console.error('Erreur modification:', err); }
+});
 
-  fetchData();
+fetchData();
 </script>
 </body>
 </html>
