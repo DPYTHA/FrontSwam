@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Admin</title>
 <style>
+  /* Effet de clignotement rouge */
+  .new-order {
+    animation: blink 1s infinite;
+  }
+  @keyframes blink {
+    0%, 50%, 100% { background-color: #ff4d4d; }
+    25%, 75% { background-color: #f0f0f0; }
+  }
+</style>
+<style>
   body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(120deg, #fff3f0, #ffe6e0); margin: 0; padding: 0; }
   .container { max-width: 900px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
   h1 { color: orangered; text-align: center; margin-bottom: 30px; }
@@ -48,7 +58,12 @@
   <h2>📦 Commandes</h2>
   <div id="commandes"></div>
 </div>
+<audio id="alertSound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
 
+<!-- Message d'alerte défilant -->
+<marquee id="alertMarquee" behavior="scroll" direction="left" style="color: red; font-weight: bold; display:none;">
+🚨 Nouvelle commande détectée !
+</marquee>
 <!-- Modal édition commande -->
 <div class="modal" id="modal">
   <div class="modal-content">
@@ -71,11 +86,12 @@
 <script>
 const BACKEND_URL = 'https://web-production-9c72c.up.railway.app';
 let currentCommande = null;
+let lastCommandeDate = null; // Pour stocker la date de la dernière commande vue
 
 async function fetchData() {
   const token = localStorage.getItem('access_token');
 
-  // Utilisateurs
+  // Utilisateurs (inchangé)
   try {
     const resUsers = await fetch(`${BACKEND_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
     const users = await resUsers.json();
@@ -97,14 +113,15 @@ async function fetchData() {
     });
   } catch(err){ console.error('Erreur utilisateurs:', err); }
 
-  // Commandes
+  // Commandes avec détection nouvelle commande
   try {
     const resCmd = await fetch(`${BACKEND_URL}/admin/commandes`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await resCmd.json();
     const commandes = data.commandes || [];
     const cmdDiv = document.getElementById('commandes');
     cmdDiv.innerHTML = '';
-    commandes.forEach(c => {
+
+    commandes.forEach((c, index) => {
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
@@ -119,78 +136,35 @@ async function fetchData() {
         <strong>Statut:</strong> ${c.statut} <br>
         <strong>Utilisateur ID:</strong> ${c.user_id}
       `;
+
       const btnEdit = document.createElement('button');
       btnEdit.className = 'btn-edit';
       btnEdit.innerText = '✏️ Modifier';
       btnEdit.onclick = () => openModal(c);
       card.appendChild(btnEdit);
+
+      // Vérifier si c'est une nouvelle commande
+      const cmdDate = new Date(c.date_commande);
+      if (!lastCommandeDate || cmdDate > new Date(lastCommandeDate)) {
+        if (index === 0 && lastCommandeDate) { // Seulement si c'est plus récent que la dernière vue
+          card.classList.add("new-order");
+          document.getElementById("alertMarquee").style.display = "block";
+          document.getElementById("alertSound").play();
+        }
+      }
+
       cmdDiv.appendChild(card);
     });
+
+    // Mettre à jour la dernière commande vue
+    if (commandes.length > 0) {
+      lastCommandeDate = commandes[0].date_commande;
+    }
   } catch(err){ console.error('Erreur commandes:', err); }
 }
 
-async function toggleDispo(userId, currentState) {
-  const token = localStorage.getItem('access_token');
-  try {
-    await fetch(`${BACKEND_URL}/api/livreur/${userId}/disponibilite`, {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ disponible: !currentState })
-    });
-    fetchData();
-  } catch(err){ console.error(err); }
-}
-
-function logout(){
-  localStorage.removeItem('access_token');
-  window.location.href = 'login.html';
-}
-
-function openModal(cmd){
-  currentCommande = cmd;
-  document.getElementById('type').value = cmd.type;
-  document.getElementById('depart').value = cmd.depart;
-  document.getElementById('arrivee').value = cmd.arrivee;
-  document.getElementById('produits').value = cmd.produits;
-  document.getElementById('montant_colis').value = cmd.montant_colis;
-  document.getElementById('frais').value = cmd.frais;
-  document.getElementById('montant_total').value = cmd.montant_total;
-  document.getElementById('tracking_code').value = cmd.tracking_code;
-  document.getElementById('statut').value = cmd.statut;
-  document.getElementById('user_id').value = cmd.user_id;
-  document.getElementById('modal').style.display = 'flex';
-}
-
-function closeModal(){
-  currentCommande = null;
-  document.getElementById('modal').style.display = 'none';
-}
-
-document.getElementById('saveBtn').addEventListener('click', async () => {
-  if(!currentCommande) return;
-  const token = localStorage.getItem('access_token');
-  const payload = {
-    type: document.getElementById('type').value,
-    depart: document.getElementById('depart').value,
-    arrivee: document.getElementById('arrivee').value,
-    produits: document.getElementById('produits').value,
-    montant_colis: parseFloat(document.getElementById('montant_colis').value),
-    frais: parseFloat(document.getElementById('frais').value),
-    montant_total: parseFloat(document.getElementById('montant_total').value),
-    tracking_code: document.getElementById('tracking_code').value,
-    statut: parseInt(document.getElementById('statut').value),
-    user_id: parseInt(document.getElementById('user_id').value)
-  };
-  try{
-    await fetch(`${BACKEND_URL}/admin/commandes/${currentCommande.id}`, {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload)
-    });
-    closeModal();
-    fetchData();
-  } catch(err){ console.error('Erreur modification:', err); }
-});
+// Rafraîchir toutes les 20 secondes
+setInterval(fetchData, 20000);
 
 fetchData();
 </script>
