@@ -109,31 +109,31 @@ function authHeaders(json = true) {
   return headers;
 }
 
+
 /* ---------- AUDIO / ALERTES ---------- */
 const alertSound = document.getElementById('alertSound');
 const alertMarquee = document.getElementById('alertMarquee');
+
 document.getElementById('enableSound').addEventListener('click', async () => {
   try {
-    alertSound.muted = false;
-    // "débloquer" l'audio (play/pause)
+    // on essaye de jouer un petit son pour "débloquer"
     await alertSound.play();
-    alertSound.pause();
-    alertSound.currentTime = 0;
     soundEnabled = true;
     document.getElementById('enableSound').textContent = '🔔 Son activé';
   } catch (e) {
     console.warn('Le navigateur a bloqué l’audio : ', e);
-    alert('Clique à nouveau si le son ne se lance pas (politique navigateur).');
+    alert('Clique encore une fois si le son ne se lance pas (politique navigateur).');
   }
 });
+
 function notifyNewOrders() {
   alertMarquee.style.display = 'block';
   if (soundEnabled) {
-    alertSound.currentTime = 0;
-    alertSound.play().catch(()=>{ /* ignore */ });
+    alertSound.currentTime = 0;   // repartir au début
+    alertSound.play().catch(err => console.warn('Lecture bloquée:', err));
   }
-  // cacher le bandeau après 10s
-  setTimeout(() => alertMarquee.style.display = 'none', 10000);
+  // cacher le bandeau après 60s
+  setTimeout(() => alertMarquee.style.display = 'none', 60000);
 }
 
 /* ---------- FETCH DATA ---------- */
