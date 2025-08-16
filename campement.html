@@ -1,27 +1,37 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion Commandes - Campement</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-        h1 { text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
-        th { background: #333; color: white; }
-        button { padding: 5px 10px; margin: 2px; cursor: pointer; }
-        .edit-form { display: none; background: #fff; padding: 15px; border-radius: 5px; margin-top: 20px; }
-        .form-group { margin-bottom: 10px; }
-        label { display: block; font-weight: bold; }
-        input, textarea { width: 100%; padding: 8px; }
-        .btn-save { background: green; color: white; border: none; }
-        .btn-cancel { background: gray; color: white; border: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion Commandes - Campement</title>
+<style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+    th { background: #333; color: white; }
+    button { padding: 5px 10px; margin: 2px; cursor: pointer; }
+    .edit-form { display: none; background: #fff; padding: 15px; border-radius: 5px; margin-top: 20px; }
+    .form-group { margin-bottom: 10px; }
+    label { display: block; font-weight: bold; }
+    input, textarea { width: 100%; padding: 8px; }
+    .btn-save { background: green; color: white; border: none; }
+    .btn-cancel { background: gray; color: white; border: none; }
+    /* Nouveau style pour alerte commande */
+    #alertMarquee { display: none; color: red; font-weight: bold; margin-top: 10px; }
+    .new-order { background-color: #ffdddd; animation: blink 1s infinite; }
+    @keyframes blink { 0%, 50%, 100% { background-color: #ffdddd; } 25%, 75% { background-color: #fff; } }
+    #soundBtn { margin-bottom: 10px; padding: 8px 12px; background: #16a34a; color: white; border: none; border-radius: 5px; cursor: pointer; }
+</style>
 </head>
 <body>
 
 <h1>📦 Commandes Clients</h1>
+
+<button id="soundBtn">🔔 Activer le son</button>
+<marquee id="alertMarquee" behavior="scroll" direction="left">
+🚨 Nouvelle commande détectée !
+</marquee>
 
 <table id="commandesTable">
     <thead>
@@ -83,15 +93,58 @@
 </div>
 
 <script>
-const API_URL = "https://web-production-9c72c.up.railway.app/commandesResto"; // change avec ton vrai backend
+const API_URL = "https://web-production-9c72c.up.railway.app/commandesResto";
+let seenIds = new Set();
+let soundEnabled = false;
+
+document.getElementById('soundBtn').addEventListener('click', () => {
+    soundEnabled = true;
+    document.getElementById('soundBtn').textContent = "🔔 Son activé";
+});
+
+// Fonction bip sonore
+function playBeep() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(frequency, duration, delay) {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+        oscillator.start(audioCtx.currentTime + delay);
+        oscillator.stop(audioCtx.currentTime + delay + duration / 1000);
+        gainNode.gain.setValueAtTime(1, audioCtx.currentTime + delay);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration / 1000);
+    }
+    beep(440, 200, 0);
+    beep(440, 200, 0.4);
+}
+
+// Fonction de notification nouvelle commande
+function notifyNewOrders() {
+    const alertMarquee = document.getElementById('alertMarquee');
+    alertMarquee.style.display = 'block';
+    if (soundEnabled) playBeep();
+    setTimeout(() => alertMarquee.style.display = 'none', 60000);
+}
 
 async function fetchCommandes() {
     const res = await fetch(API_URL);
     const data = await res.json();
     const tbody = document.querySelector("#commandesTable tbody");
     tbody.innerHTML = "";
+    let hasNew = false;
+    const currentIds = new Set();
+
     data.forEach(cmd => {
+        currentIds.add(cmd.id);
+        const isNew = !seenIds.has(cmd.id);
+        if (isNew && seenIds.size > 0) hasNew = true;
+
         const tr = document.createElement("tr");
+        if (isNew && seenIds.size > 0) tr.classList.add("new-order");
+
         tr.innerHTML = `
             <td>${cmd.id}</td>
             <td>${cmd.nom}</td>
@@ -106,6 +159,9 @@ async function fetchCommandes() {
         `;
         tbody.appendChild(tr);
     });
+
+    if (hasNew) notifyNewOrders();
+    seenIds = currentIds;
 }
 
 function editCommande(cmd) {
@@ -121,9 +177,7 @@ function editCommande(cmd) {
     document.getElementById("editDate").value = cmd.date_commande.replace("Z", "");
 }
 
-function cancelEdit() {
-    document.getElementById("editForm").style.display = "none";
-}
+function cancelEdit() { document.getElementById("editForm").style.display = "none"; }
 
 document.getElementById("updateForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -155,7 +209,9 @@ document.getElementById("updateForm").addEventListener("submit", async (e) => {
     }
 });
 
+// Initialisation & polling
 fetchCommandes();
+setInterval(fetchCommandes, 5000); // vérifier toutes les 5 secondes
 </script>
 
 </body>
