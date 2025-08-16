@@ -61,7 +61,7 @@
   <div id="commandes"></div>
 </div>
 
-<audio id="alertSound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+
 
 <!-- Message d'alerte défilant -->
 <marquee id="alertMarquee" behavior="scroll" direction="left" style="color: red; font-weight: bold; display:none;">
@@ -111,31 +111,49 @@ function authHeaders(json = true) {
 
 
 /* ---------- AUDIO / ALERTES ---------- */
-const alertSound = document.getElementById('alertSound');
+
 const alertMarquee = document.getElementById('alertMarquee');
 
-document.getElementById('enableSound').addEventListener('click', async () => {
-  try {
-    // on essaye de jouer un petit son pour "débloquer"
-    await alertSound.play();
-    soundEnabled = true;
-    document.getElementById('enableSound').textContent = '🔔 Son activé';
-  } catch (e) {
-    console.warn('Le navigateur a bloqué l’audio : ', e);
-    alert('Clique encore une fois si le son ne se lance pas (politique navigateur).');
-  }
+document.getElementById('enableSound').addEventListener('click', () => {
+  soundEnabled = true;
+  document.getElementById('enableSound').textContent = '🔔 Son activé';
 });
+
+function playBeep() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  function beep(frequency, duration, delay) {
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+
+    oscillator.start(audioCtx.currentTime + delay);
+    oscillator.stop(audioCtx.currentTime + delay + duration / 1000);
+
+    gainNode.gain.setValueAtTime(1, audioCtx.currentTime + delay);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration / 1000);
+  }
+
+  beep(440, 200, 0);   // premier bip
+  beep(440, 200, 0.4); // deuxième bip après 400ms
+}
+
 
 function notifyNewOrders() {
   alertMarquee.style.display = 'block';
   if (soundEnabled) {
-    alertSound.currentTime = 0;   // repartir au début
-    alertSound.play().catch(err => console.warn('Lecture bloquée:', err));
+    playBeep(); // bip double à la place du fichier audio
   }
   // cacher le bandeau après 60s
   setTimeout(() => alertMarquee.style.display = 'none', 60000);
 }
 
+ 
 /* ---------- FETCH DATA ---------- */
 async function fetchUsers() {
   try {
